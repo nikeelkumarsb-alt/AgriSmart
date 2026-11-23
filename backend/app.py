@@ -82,7 +82,7 @@ def weather():
   hourly=data.get("hourly",{})
   hour_times=hourly.get("time",[])
   current_time=data["current"].get("time")
-  hour_index=hour_times.index(current_time) if current_time in hour_times else None
+  hour_index=max((i for i,t in enumerate(hour_times) if current_time and t <= current_time), default=None)
   if hour_index is not None:
    for key in ("precipitation_probability","visibility","uv_index"):
     values=hourly.get(key,[])
