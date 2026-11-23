@@ -1,5 +1,5 @@
 import React,{useEffect,useState}from'react';
-const API=(import.meta.env.VITE_API_URL||'http://127.0.0.1:5000/api').replace(/\/$/,'');
+const API=(import.meta.env.VITE_API_URL||'https://agrismart-api-orv0.onrender.com/api').replace(/\/$/,'');
 const weatherIcon=code=>code===0?'☀️':code<=2?'🌤️':code===3?'☁️':code<=48?'🌫️':code<=67?'🌧️':code<=77?'❄️':code<=82?'🌦️':code<=86?'🌨️':'⛈️';
 const initial={soil_type:'red',ph:'6.5',rainfall:'750',season:'kharif',water:'low',n:'',p:'',k:''};
 export default function App(){const[page,setPage]=useState('Recommend');const[crops,setCrops]=useState([]);const[form,setForm]=useState(initial);const[results,setResults]=useState([]);const[error,setError]=useState('');const[q,setQ]=useState('');const[soil,setSoil]=useState({crop_id:'ragi',n:'35',p:'25',k:'30',ph:'6.5'});const[report,setReport]=useState(null);const[farms,setFarms]=useState([]);const[farm,setFarm]=useState({farmer:'',location:'',soil_type:'red',area:'',crop:''});const[weather,setWeather]=useState(null);const[weatherLoading,setWeatherLoading]=useState(false);const[locationStatus,setLocationStatus]=useState('');const[api,setApi]=useState(false);
