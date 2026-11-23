@@ -65,23 +65,36 @@ def weather():
  try:
   params={
    "latitude":lat,"longitude":lon,
-   "current":"temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility,uv_index",
-   "hourly":"temperature_2m,precipitation_probability,precipitation,rain,weather_code",
+   # Open-Meteo's current endpoint supports a smaller set than hourly.
+   "current":"temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m",
+   "hourly":"temperature_2m,precipitation_probability,precipitation,rain,weather_code,visibility,uv_index",
    "daily":"weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,rain_sum,precipitation_probability_max,sunrise,sunset,uv_index_max,et0_fao_evapotranspiration",
    "timezone":"auto","forecast_days":7
   }
-  r=requests.get("https://api.open-meteo.com/v1/forecast",params=params,timeout=15)
+  r=requests.get("https://api.open-meteo.com/v1/forecast",params=params,timeout=20)
   r.raise_for_status()
   data=r.json()
-  if "current" not in data or "daily" not in data:
+  if "current" not in data or "daily" not in data or "hourly" not in data:
    return jsonify(error="Weather provider returned incomplete data. Please retry."),502
+  # These are hourly variables, not supported current request variables.
+  # Copy the observation for the current timestamp into the current object
+  # so the existing UI can render rain chance, UV and visibility consistently.
+  hourly=data.get("hourly",{})
+  hour_times=hourly.get("time",[])
+  current_time=data["current"].get("time")
+  hour_index=hour_times.index(current_time) if current_time in hour_times else None
+  if hour_index is not None:
+   for key in ("precipitation_probability","visibility","uv_index"):
+    values=hourly.get(key,[])
+    if hour_index < len(values):
+     data["current"][key]=values[hour_index]
   code=data["current"].get("weather_code",0)
   labels={0:"Clear sky",1:"Mainly clear",2:"Partly cloudy",3:"Overcast",45:"Fog",48:"Depositing rime fog",51:"Light drizzle",53:"Drizzle",55:"Dense drizzle",61:"Slight rain",63:"Moderate rain",65:"Heavy rain",71:"Slight snowfall",73:"Snowfall",75:"Heavy snowfall",80:"Rain showers",81:"Moderate rain showers",82:"Violent rain showers",95:"Thunderstorm",96:"Thunderstorm with hail",99:"Severe thunderstorm"}
   icons={0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌦️",55:"🌧️",61:"🌧️",63:"🌧️",65:"🌧️",71:"🌨️",73:"❄️",75:"❄️",80:"🌦️",81:"🌧️",82:"⛈️",95:"⛈️",96:"⛈️",99:"⛈️"}
   data["condition"]={"label":labels.get(code,"Variable conditions"),"icon":icons.get(code,"🌤️")}
   data["location"]={"latitude":lat,"longitude":lon}
   try:
-   geo=requests.get("https://nominatim.openstreetmap.org/reverse",params={"lat":lat,"lon":lon,"format":"jsonv2","zoom":10},headers={"User-Agent":"AgriSmart-College-Prototype/1.0 (weather location lookup)"},timeout=8)
+   geo=requests.get("https://nominatim.openstreetmap.org/reverse",params={"lat":lat,"lon":lon,"format":"jsonv2","zoom":10},headers={"User-Agent":"AgriSmart-College-Prototype/1.0 (weather location lookup)"},timeout=5)
    if geo.ok:
     address=geo.json().get("address",{})
     data["location_name"]=", ".join(x for x in [address.get("village") or address.get("town") or address.get("city") or address.get("county"),address.get("state_district") or address.get("state")] if x)
@@ -90,7 +103,9 @@ def weather():
   return jsonify(data)
  except requests.Timeout:
   return jsonify(error="Weather request timed out. Please try again."),504
- except requests.RequestException:
+ except requests.HTTPError:
+  return jsonify(error="Weather provider rejected the request. Please retry in a moment."),502
+ except (requests.RequestException, ValueError):
   return jsonify(error="Weather service is temporarily unavailable. Check your connection and retry."),503
 @app.get("/api/farms")
 def farms():
