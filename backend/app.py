@@ -107,6 +107,66 @@ def weather():
   return jsonify(error="Weather provider rejected the request. Please retry in a moment."),502
  except (requests.RequestException, ValueError):
   return jsonify(error="Weather service is temporarily unavailable. Check your connection and retry."),503
+
+@app.post("/api/field-recommend")
+def field_recommend():
+ d=request.get_json(silent=True) or {}
+ soil=str(d.get("soil_type","")).lower(); season=str(d.get("season","")).lower(); water=str(d.get("water","")).lower()
+ ph=num(d.get("ph")); rain=num(d.get("rainfall")); forecast_rain=num(d.get("forecast_rain_7d")); temp=num(d.get("temperature")); location=str(d.get("location","")).strip()
+ if not all([soil,season,water]) or ph is None or rain is None:
+  return jsonify(error="Soil type, pH, annual rainfall, season and water availability are required."),400
+ out=[]
+ for crop in CROPS:
+  parts={}
+  parts["soil"]=25 if soil in crop["soil"] else 0
+  parts["pH"]=20 if crop["ph"][0]<=ph<=crop["ph"][1] else max(0,10-abs(ph-sum(crop["ph"])/2)*5)
+  parts["annual_rainfall"]=15 if crop["rain"][0]<=rain<=crop["rain"][1] else max(0,8-abs(rain-sum(crop["rain"])/2)/100)
+  parts["season"]=15 if season in crop["seasons"] else 0
+  parts["water"]=10 if water==crop["water"] else (5 if water=="medium" or crop["water"]=="medium" else 0)
+  score=sum(parts.values())
+  notes=[]
+  if parts["soil"]==0: notes.append("Soil type is outside this crop's starter dataset preference.")
+  if parts["pH"]<20: notes.append("Soil pH needs local verification or amendment planning.")
+  if parts["annual_rainfall"]<15: notes.append("Annual rainfall is outside the starter range.")
+  if parts["season"]==0: notes.append("Season is not listed in the starter crop calendar.")
+  if forecast_rain is not None:
+   if forecast_rain>=100: notes.append("Heavy 7-day rain outlook: check drainage and avoid field operations on saturated soil.")
+   elif forecast_rain<=5: notes.append("Very low 7-day rain outlook: confirm irrigation availability.")
+   else: notes.append("Review the 7-day rainfall outlook before sowing and irrigation.")
+  if temp is not None: notes.append("Use local crop-stage temperature thresholds from the regional agricultural package.")
+  out.append({**crop,"score":round(score),"score_breakdown":parts,"reasons":notes or ["Core soil, season and water inputs match the starter crop profile."]})
+ out.sort(key=lambda x:x["score"],reverse=True)
+ context={"location":location or None,"coordinates":{"latitude":num(d.get("latitude")),"longitude":num(d.get("longitude"))} if num(d.get("latitude")) is not None and num(d.get("longitude")) is not None else None,"forecast_rain_7d_mm":forecast_rain,"current_temperature_c":temp,"crop_history":d.get("crop_history") or None}
+ return jsonify(results=out[:5],context=context,disclaimer="Location and weather are contextual signals, not a validated district-level crop model. This starter dataset does not replace local crop calendars, soil testing or KVK/SAU advice.")
+@app.post("/api/fertilizer-advice")
+def fertilizer_advice():
+ d=request.get_json(silent=True) or {}
+ crop=next((x for x in CROPS if x["id"]==d.get("crop_id")),None)
+ stage=str(d.get("stage","")).strip(); symptom=str(d.get("symptom","none")).strip()
+ vals={k:num(d.get(k)) for k in ("n","p","k","ph")}
+ if not crop or not stage or any(v is None for v in vals.values()):
+  return jsonify(error="Select a crop and growth stage, and enter soil-test NPK and pH values."),400
+ if any(v<0 for v in vals.values()): return jsonify(error="Soil-test values cannot be negative."),400
+ rain=num(d.get("forecast_rain_7d")); irrigation=str(d.get("irrigation","unknown"))
+ signals=[]
+ if vals["n"]<20: signals.append("N is below the prototype screening threshold; confirm lab units and the soil-test rating.")
+ elif vals["n"]>80: signals.append("N is high in this simple screening; avoid adding nitrogen without a local recommendation.")
+ if vals["p"]<15: signals.append("P is below the prototype screening threshold; confirm the lab method and units.")
+ elif vals["p"]>60: signals.append("P is high in this simple screening; avoid additional phosphorus until reviewed.")
+ if vals["k"]<20: signals.append("K is below the prototype screening threshold; confirm the lab method and units.")
+ elif vals["k"]>80: signals.append("K is high in this simple screening; avoid adding potassium without a local recommendation.")
+ if not crop["ph"][0]<=vals["ph"]<=crop["ph"][1]: signals.append("Measured pH is outside this crop's broad starter range; investigate pH before nutrient correction.")
+ symptom_map={"yellow_old":"Yellowing on older leaves can have several causes, including N shortage, waterlogging or root stress; confirm before treatment.","yellow_young":"Yellowing on young leaves can have several causes, including micronutrient or root/pH issues; confirm before treatment.","leaf_edges":"Leaf-edge scorch can be related to K, salinity, heat or water stress; it is not a diagnosis.","purple":"Purple coloration can be linked to P availability, cold roots or varietal traits; confirm before treatment.","spots":"Leaf spots may be disease, pest or abiotic injury; fertilizer alone may not solve it.","wilting":"Wilting can indicate water stress, root damage or vascular disease; check soil moisture and roots first.","none":"No visible symptoms reported."}
+ symptom_note=symptom_map.get(symptom,"Symptoms need field inspection; this questionnaire cannot diagnose disease.")
+ weather_note="No forecast rainfall supplied; check local forecast before application."
+ if rain is not None:
+  weather_note=("Rain outlook is high: avoid applying soluble fertilizer immediately before heavy rain because of runoff/leaching risk." if rain>=25 else "Rain outlook is low: confirm soil moisture and irrigation before applying nutrients." if rain<5 else "Check the application label and local forecast; avoid application before heavy rain.")
+ options=[
+ {"type":"Lab-formulated / soil-test blend","examples":"A locally prepared NPK or micronutrient blend based on a certified soil test and crop-stage recommendation.","pros":["Can target the measured nutrient gap","Can be tailored to crop and soil test","Clear nutrient analysis when supplied by a licensed/verified source"],"cons":["Quality and formulation vary by supplier","Requires reliable lab results and correct units","May cost more than common bulk fertilizers"],"best_when":"A current soil test identifies a specific nutrient requirement and a qualified lab/agronomist specifies the blend."},
+ {"type":"Organic","examples":"Mature compost, well-decomposed farmyard manure or vermicompost from a trusted source.","pros":["Adds organic matter and can improve soil structure","Supports biological activity","Can recycle farm residues"],"cons":["Nutrient content is variable and often slower to release","Bulky to transport and apply","Poorly matured material may introduce weed seeds or pathogens"],"best_when":"Building soil organic matter and supporting long-term soil health; nutrient contribution should be tested or conservatively estimated."},
+ {"type":"Synthetic / mineral","examples":"Only the crop- and soil-test-appropriate mineral fertilizer grade recommended by local agriculture guidance.","pros":["Known nutrient concentration on a genuine label","Usually faster and more predictable nutrient availability","Lower bulk for transport"],"cons":["Over-application can burn crops or cause nutrient imbalance","Losses can occur through leaching or runoff","Does not replace organic-matter management"],"best_when":"A confirmed nutrient deficiency requires a timely, measured nutrient supply under local package-of-practice guidance."}
+ ]
+ return jsonify(crop=crop["name"],stage=stage,soil_test=vals,health_observation=symptom_note,screening_signals=signals,weather_guidance=weather_note,irrigation=irrigation,options=options,action_plan=["Confirm the soil-test units, sampling depth and report date with the laboratory.","Inspect the whole plant, roots and field pattern; use a KVK/plant clinic for suspected disease or pest damage.","Choose a nutrient only when a soil test or validated crop-stage recommendation supports it.","Follow the product label and current district/state package of practices for dose, timing, PPE and waiting periods."],safety_note="This is a screening and comparison aid, not a fertilizer prescription or plant-disease diagnosis. No dose is calculated because crop variety, area, soil-test method, target yield and regional recommendations are not yet verified.")
 @app.get("/api/farms")
 def farms():
  with conn() as c: rows=c.execute("SELECT * FROM farms ORDER BY id DESC").fetchall()
