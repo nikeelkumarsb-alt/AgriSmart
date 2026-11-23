@@ -123,7 +123,8 @@ def field_recommend():
   parts["annual_rainfall"]=15 if crop["rain"][0]<=rain<=crop["rain"][1] else max(0,8-abs(rain-sum(crop["rain"])/2)/100)
   parts["season"]=15 if season in crop["seasons"] else 0
   parts["water"]=10 if water==crop["water"] else (5 if water=="medium" or crop["water"]=="medium" else 0)
-  score=sum(parts.values())
+  raw_score=sum(parts.values())
+  score=round(raw_score/85*100)
   notes=[]
   if parts["soil"]==0: notes.append("Soil type is outside this crop's starter dataset preference.")
   if parts["pH"]<20: notes.append("Soil pH needs local verification or amendment planning.")
