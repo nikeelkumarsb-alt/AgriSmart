@@ -23,7 +23,7 @@ export function MarketRatings({ ratings = {}, onChange }) {
   );
 }
 
-export function MarketResults({ report, onSave }) {
+export function MarketResults({ report }) {
   if (!report.market_note) return null;
   return (
     <section className="panel">
@@ -44,7 +44,6 @@ export function MarketResults({ report, onSave }) {
             </p>
             <p><b>Pros:</b> {product.pros}</p>
             <p><b>Cons:</b> {product.cons}</p>
-          <button type="button" onClick={()=>onSave(product)}>Save to diary</button>
           </article>
         ))}
       </div>
