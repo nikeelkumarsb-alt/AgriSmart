@@ -18,7 +18,7 @@ function readDiary() {
   }
 }
 
-export default function SmartFarmDiary() {
+export default function SmartFarmDiary({ draft, clearDraft }) {
   const [entries, setEntries] = useState(readDiary);
   const [fieldFilter, setFieldFilter] = useState('');
   const [error, setError] = useState('');
@@ -60,11 +60,13 @@ export default function SmartFarmDiary() {
       date: data.get('date'),
       activity: data.get('activity'),
       notes: data.get('notes').trim(),
+      ...(draft?.photo ? {photo:draft.photo} : {}),
       plan: data.get('kind') === 'plan',
     };
     if (save([entry, ...entries])) {
       setFieldFilter(field);
       form.reset();
+      clearDraft();
     }
   }
 
@@ -74,6 +76,7 @@ export default function SmartFarmDiary() {
         <div>
           <b>{entry.activity} · {entry.field}{entry.crop && ' · ' + entry.crop}</b>
           <small>{entry.completedDate ? 'Done ' + entry.completedDate + ' · Planned ' : ''}{entry.date}</small>
+          {entry.photo && <img src={entry.photo} width="160" alt="Crop observation"/>}
           {entry.notes && <p>{entry.notes}</p>}
         </div>
         {entry.plan && !entry.done &&
@@ -93,22 +96,23 @@ export default function SmartFarmDiary() {
         <small>Diary entries are saved in this browser. Due reminders appear here when you open the diary.</small>
       </div>
       {error && <p className="error" role="alert">{error}</p>}
-      <form className="panel" onSubmit={add}>
+      <form key={draft ? "draft" : "blank"} className="panel" onSubmit={add}>
         <h3>Add a diary entry</h3>
         <div className="fields">
           <label>Field or plot<input name="field" required maxLength={80} list="diary-fields" defaultValue={fieldFilter}/></label>
           <datalist id="diary-fields">{fields.map(field => <option key={field} value={field}/>)}</datalist>
-          <label>Crop<input name="crop" maxLength={80} placeholder="Optional"/></label>
-          <label>Activity<select name="activity">
+          <label>Crop<input name="crop" defaultValue={draft?.crop || ""} maxLength={80} placeholder="Optional"/></label>
+          <label>Activity<select name="activity" defaultValue={draft?.activity}>
             {activities.map(activity => <option key={activity}>{activity}</option>)}
           </select></label>
           <label>Date<input name="date" type="date" required defaultValue={date}/></label>
-          <label>Entry type<select name="kind">
+          <label>Entry type<select name="kind" defaultValue={draft?.kind}>
             <option value="log">Record completed work or observation</option>
             <option value="plan">Plan a task</option>
           </select></label>
         </div>
-        <label>Notes<textarea name="notes" maxLength={1000} rows={3} placeholder="What did you do, notice or plan?"/></label>
+        <label>Notes<textarea name="notes" defaultValue={draft?.notes || ""} maxLength={1000} rows={3} placeholder="What did you do, notice or plan?"/></label>
+        {draft?.photo && <img src={draft.photo} width="150" alt="Crop observation to save"/>}
         <button className="primary">Save diary entry</button>
       </form>
       <section className="panel">
