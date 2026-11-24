@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3, os, requests
 from datetime import datetime
+from market_fertilizers import market_matches
 
 app=Flask(__name__)
 CORS(app)
@@ -167,7 +168,8 @@ def fertilizer_advice():
  {"type":"Organic","examples":"Mature compost, well-decomposed farmyard manure or vermicompost from a trusted source.","pros":["Adds organic matter and can improve soil structure","Supports biological activity","Can recycle farm residues"],"cons":["Nutrient content is variable and often slower to release","Bulky to transport and apply","Poorly matured material may introduce weed seeds or pathogens"],"best_when":"Building soil organic matter and supporting long-term soil health; nutrient contribution should be tested or conservatively estimated."},
  {"type":"Synthetic / mineral","examples":"Only the crop- and soil-test-appropriate mineral fertilizer grade recommended by local agriculture guidance.","pros":["Known nutrient concentration on a genuine label","Usually faster and more predictable nutrient availability","Lower bulk for transport"],"cons":["Over-application can burn crops or cause nutrient imbalance","Losses can occur through leaching or runoff","Does not replace organic-matter management"],"best_when":"A confirmed nutrient deficiency requires a timely, measured nutrient supply under local package-of-practice guidance."}
  ]
- return jsonify(crop=crop["name"],stage=stage,soil_test=vals,health_observation=symptom_note,screening_signals=signals,weather_guidance=weather_note,irrigation=irrigation,options=options,action_plan=["Confirm the soil-test units, sampling depth and report date with the laboratory.","Inspect the whole plant, roots and field pattern; use a KVK/plant clinic for suspected disease or pest damage.","Choose a nutrient only when a soil test or validated crop-stage recommendation supports it.","Follow the product label and current district/state package of practices for dose, timing, PPE and waiting periods."],safety_note="This is a screening and comparison aid, not a fertilizer prescription or plant-disease diagnosis. No dose is calculated because crop variety, area, soil-test method, target yield and regional recommendations are not yet verified.")
+ products, market_note = market_matches(d.get("lab_ratings"))
+ return jsonify(market_products=products,market_note=market_note,crop=crop["name"],stage=stage,soil_test=vals,health_observation=symptom_note,screening_signals=signals,weather_guidance=weather_note,irrigation=irrigation,options=options,action_plan=["Confirm the soil-test units, sampling depth and report date with the laboratory.","Inspect the whole plant, roots and field pattern; use a KVK/plant clinic for suspected disease or pest damage.","Choose a nutrient only when a soil test or validated crop-stage recommendation supports it.","Follow the product label and current district/state package of practices for dose, timing, PPE and waiting periods."],safety_note="This is a screening and comparison aid, not a fertilizer prescription or plant-disease diagnosis. No dose is calculated because crop variety, area, soil-test method, target yield and regional recommendations are not yet verified.")
 @app.get("/api/farms")
 def farms():
  with conn() as c: rows=c.execute("SELECT * FROM farms ORDER BY id DESC").fetchall()
