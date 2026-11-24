@@ -4,7 +4,7 @@
 
 .weather-manual{margin:16px 0 8px;padding:14px;background:#fff;border:1px solid #e8eee7;border-radius:12px;max-width:620px}.weather-manual label{display:block;margin:0 0 9px;font-weight:700;color:#526457}.weather-manual>div{display:flex;gap:9px}.weather-manual input{flex:1;min-width:0}.weather-manual .primary{width:auto;white-space:nowrap;margin:0}.weather-actions .primary{min-height:44px}.weather-manual input{min-height:44px}@media(max-width:520px){.weather-manual>div{flex-direction:column}.weather-manual .primary{width:100%;min-height:46px}.weather-actions{align-items:stretch}.weather-actions .primary{width:100%;min-height:46px}.weather-manual{padding:12px}.weather-location small{overflow-wrap:anywhere}}
 
-.fertilizer-compare{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}.fertilizer-compare .panel{margin:0}.fertilizer-compare h3{line-height:1.35}.fertilizer-point{font-size:13px;color:#617265;line-height:1.5;margin:8px 0}.fertilizer-compare .panel>p{font-size:13px;line-height:1.55;color:#66766a}.workspace .panel .muted{line-height:1.5}@media(max-width:800px){.fertilizer-compare{grid-template-columns:1fr}.fertilizer-compare .panel{padding:18px}}
+.workspace .panel .muted{line-height:1.5}@media(max-width:800px){}
 
 .market-ratings { border: 1px solid #d8e4d9; border-radius: 12px; margin: 16px 0; padding: 12px; }
 .market-ratings legend { font-weight: 700; padding: 0 6px; }
